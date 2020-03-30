@@ -8,23 +8,23 @@ from SearchEngine import *
 class UserInterface():
     def __init__(self, search_engine):
         self.search_engine = search_engine
-        self.search_engine.pidChanged.connect(self.onPidChanged)
-        self.initMainWindow()
-        self.initOpenProcessDialog()
-    def clearTableWidget(self, tableWidget):
-        while tableWidget.rowCount() > 0:
-            tableWidget.removeRow(0)
-    def selectedSearchCondition(self):
+        self.search_engine.pid_changed.connect(self.on_pid_changed)
+        self.init_main_window()
+        self.init_open_process_dialog()
+    def clear_table_widget(self, table_widget):
+        while table_widget.rowCount() > 0:
+            table_widget.removeRow(0)
+    def selected_search_condition(self):
         switcher = {
             0: SearchCondition.ExactValue
         }
         return switcher.get(self.main_window.comboBoxScanType, SearchCondition.ExactValue)
-    def selectedValueType(self):
+    def selected_value_type(self):
         switcher = {
             0: ValueType.IntegerType
         }
         return switcher.get(self.main_window.comboBoxValueType, ValueType.IntegerType)
-    def initMainWindow(self):
+    def init_main_window(self):
         ui_loader = QUiLoader()
         ui_file = QFile("RemoteMemoryScanner/MainWindow.ui")
         ui_file.open(QFile.ReadOnly)
@@ -32,22 +32,22 @@ class UserInterface():
         self.main_window.tableWidgetSearchResults.horizontalHeaderItem(0).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetSearchResults.horizontalHeaderItem(1).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetSearchResults.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft)
-        self.main_window.tableWidgetSearchResults.itemDoubleClicked.connect(self.onFoundAddressDoubleClicked)
+        self.main_window.tableWidgetSearchResults.itemDoubleClicked.connect(self.on_found_address_double_clicked)
         self.main_window.tableWidgetAddresses.insertingData = False # quick hack; todo: get rid of this and use QTableView instead of QTableWidget
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(0).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(1).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(3).setTextAlignment(Qt.AlignLeft)
-        self.main_window.actionOpenProcess.triggered.connect(self.onShowOpenProcessActionTriggered)
-        self.main_window.pushButtonFirstScan.clicked.connect(self.onFirstScanButtonClicked)
-        self.main_window.pushButtonNextScan.clicked.connect(self.onNextScanButtonClicked)
-        self.main_window.pushButtonUndoScan.clicked.connect(self.onUndoLastScanButtonClicked)
-        self.main_window.spinBoxDisplayIfLessThan.valueChanged.connect(self.onDisplayIfLessThanValueChanged)
-        self.main_window.pushButtonRefreshFoundValues.clicked.connect(self.onRefreshFoundValuesButtonClicked)
-        self.main_window.tableWidgetAddresses.cellChanged.connect(self.onMonitoredValueChanged)
-        self.search_engine.scanHistory.updated.connect(self.onScanHistoryUpdated)
-        self.search_engine.addressMonitor.updated.connect(self.updateAddressesTable)
-    def initOpenProcessDialog(self):
+        self.main_window.actionOpenProcess.triggered.connect(self.on_show_open_process_action_triggered)
+        self.main_window.pushButtonFirstScan.clicked.connect(self.on_first_scan_button_clicked)
+        self.main_window.pushButtonNextScan.clicked.connect(self.on_next_scan_button_clicked)
+        self.main_window.pushButtonUndoScan.clicked.connect(self.on_undo_last_scan_button_clicked)
+        self.main_window.spinBoxDisplayIfLessThan.valueChanged.connect(self.on_display_if_less_than_value_changed)
+        self.main_window.pushButtonRefreshFoundValues.clicked.connect(self.on_refresh_found_values_button_clicked)
+        self.main_window.tableWidgetAddresses.cellChanged.connect(self.on_monitored_value_changed)
+        self.search_engine.scan_history.updated.connect(self.on_scan_history_updated)
+        self.search_engine.address_monitor.updated.connect(self.update_addresses_table)
+    def init_open_process_dialog(self):
         ui_loader = QUiLoader()
         ui_file = QFile("RemoteMemoryScanner/OpenProcessDialog.ui")
         ui_file.open(QFile.ReadOnly)
@@ -57,182 +57,182 @@ class UserInterface():
         self.open_process_dialog.tableWidgetProcesses.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft)
         self.open_process_dialog.tableWidgetProcesses.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.open_process_dialog.tableWidgetProcesses.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.open_process_dialog.pushButtonCancel.clicked.connect(self.onHideOpenProcessActionTriggered)
-        self.open_process_dialog.pushButtonOpen.clicked.connect(self.onOpenProcessButtonClicked)
-        self.open_process_dialog.pushButtonRefresh.clicked.connect(self.search_engine.processList.refresh)
-        self.open_process_dialog.checkBoxFilterByName.toggled.connect(self.refreshProcessList)
-        self.search_engine.processList.updated.connect(self.refreshProcessList)
-    def onShowOpenProcessActionTriggered(self):
-        self.search_engine.processList.refresh()
+        self.open_process_dialog.pushButtonCancel.clicked.connect(self.on_hide_open_process_action_triggered)
+        self.open_process_dialog.pushButtonOpen.clicked.connect(self.on_open_process_button_clicked)
+        self.open_process_dialog.pushButtonRefresh.clicked.connect(self.search_engine.process_list.refresh)
+        self.open_process_dialog.checkBoxFilterByName.toggled.connect(self.refresh_process_list)
+        self.search_engine.process_list.updated.connect(self.refresh_process_list)
+    def on_show_open_process_action_triggered(self):
+        self.search_engine.process_list.refresh()
         self.open_process_dialog.show()
-    def onHideOpenProcessActionTriggered(self):
+    def on_hide_open_process_action_triggered(self):
         self.open_process_dialog.close()
-    def refreshProcessList(self):
-        self.clearTableWidget(self.open_process_dialog.tableWidgetProcesses)
-        for process in self.search_engine.processList.list:
-            pid = self.search_engine.processList.list[process]["pid"]
-            name = self.search_engine.processList.list[process]["name-long"]
-            path = self.search_engine.processList.list[process]["path-user"]
-            nameFilter = self.open_process_dialog.lineEditFilter.text()
-            if self.open_process_dialog.checkBoxFilterByName.isChecked() and not nameFilter in name:
+    def refresh_process_list(self):
+        self.clear_table_widget(self.open_process_dialog.tableWidgetProcesses)
+        for process in self.search_engine.process_list.list:
+            pid = self.search_engine.process_list.list[process]["pid"]
+            name = self.search_engine.process_list.list[process]["name-long"]
+            path = self.search_engine.process_list.list[process]["path-user"]
+            name_filter = self.open_process_dialog.lineEditFilter.text()
+            if self.open_process_dialog.checkBoxFilterByName.isChecked() and name_filter not in name:
                 continue
-            rowIndex = self.open_process_dialog.tableWidgetProcesses.rowCount()
-            self.open_process_dialog.tableWidgetProcesses.insertRow(rowIndex)
-            pidItem = QTableWidgetItem(str(pid))
-            pidItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            nameItem = QTableWidgetItem(name)
-            nameItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            pathItem = QTableWidgetItem(path)
-            pathItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self.open_process_dialog.tableWidgetProcesses.setItem(rowIndex, 0, pidItem)
-            self.open_process_dialog.tableWidgetProcesses.setItem(rowIndex, 1, nameItem)
-            self.open_process_dialog.tableWidgetProcesses.setItem(rowIndex, 2, pathItem)
+            row_index = self.open_process_dialog.tableWidgetProcesses.rowCount()
+            self.open_process_dialog.tableWidgetProcesses.insertRow(row_index)
+            pid_item = QTableWidgetItem(str(pid))
+            pid_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            name_item = QTableWidgetItem(name)
+            name_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            path_item = QTableWidgetItem(path)
+            path_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            self.open_process_dialog.tableWidgetProcesses.setItem(row_index, 0, pid_item)
+            self.open_process_dialog.tableWidgetProcesses.setItem(row_index, 1, name_item)
+            self.open_process_dialog.tableWidgetProcesses.setItem(row_index, 2, path_item)
             self.open_process_dialog.tableWidgetProcesses.resizeColumnsToContents()
-    def onOpenProcessButtonClicked(self):
+    def on_open_process_button_clicked(self):
         if len(self.open_process_dialog.tableWidgetProcesses.selectedItems()) > 0:
-            selectedRowIndex = self.open_process_dialog.tableWidgetProcesses.selectedItems()[0].row()
-            selectedPid = self.open_process_dialog.tableWidgetProcesses.item(selectedRowIndex, 0).text()
-            self.search_engine.setPid(int(selectedPid))
+            selected_row_index = self.open_process_dialog.tableWidgetProcesses.selectedItems()[0].row()
+            selected_pid = self.open_process_dialog.tableWidgetProcesses.item(selected_row_index, 0).text()
+            self.search_engine.set_pid(int(selected_pid))
             self.open_process_dialog.close()
         else:
-            messageBox = QMessageBox()
-            messageBox.setIcon(QMessageBox.Warning)
-            messageBox.setWindowTitle("Error")
-            messageBox.setText("Select a process from the list")
-            messageBox.setStandardButtons(QMessageBox.Ok)
-            messageBox.exec()
-    def onPidChanged(self):
-        processName = "No Process Selected"
-        controlsEnabled = False
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Warning)
+            message_box.setWindowTitle("Error")
+            message_box.setText("Select a process from the list")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec()
+    def on_pid_changed(self):
+        process_name = "No Process Selected"
+        controls_enabled = False
         if self.search_engine.pid >= 0:
-            processName = self.search_engine.processList.list[self.search_engine.pid]["name-long"] + " (" + str(self.search_engine.pid) + ")"
-            controlsEnabled = True
-        self.main_window.labelSelectedProcess.setText(processName)
-        self.main_window.pushButtonFirstScan.setEnabled(controlsEnabled)
-        self.main_window.labelValue.setEnabled(controlsEnabled)
-        self.main_window.lineEditValue.setEnabled(controlsEnabled)
+            process_name = self.search_engine.process_list.list[self.search_engine.pid]["name-long"] + " (" + str(self.search_engine.pid) + ")"
+            controls_enabled = True
+        self.main_window.labelSelectedProcess.setText(process_name)
+        self.main_window.pushButtonFirstScan.setEnabled(controls_enabled)
+        self.main_window.labelValue.setEnabled(controls_enabled)
+        self.main_window.lineEditValue.setEnabled(controls_enabled)
         self.main_window.lineEditValue.setText("")
-        self.main_window.labelScanType.setEnabled(controlsEnabled)
-        self.main_window.comboBoxScanType.setEnabled(controlsEnabled)
+        self.main_window.labelScanType.setEnabled(controls_enabled)
+        self.main_window.comboBoxScanType.setEnabled(controls_enabled)
         self.main_window.comboBoxScanType.setCurrentIndex(0)
-        self.main_window.labelValueType.setEnabled(controlsEnabled)
-        self.main_window.comboBoxValueType.setEnabled(controlsEnabled)
+        self.main_window.labelValueType.setEnabled(controls_enabled)
+        self.main_window.comboBoxValueType.setEnabled(controls_enabled)
         self.main_window.comboBoxValueType.setCurrentIndex(0)
-        self.main_window.groupBoxMemoryScanOptions.setEnabled(controlsEnabled)
-        self.clearTableWidget(self.main_window.tableWidgetSearchResults)
-        self.clearTableWidget(self.main_window.tableWidgetAddresses)
+        self.main_window.groupBoxMemoryScanOptions.setEnabled(controls_enabled)
+        self.clear_table_widget(self.main_window.tableWidgetSearchResults)
+        self.clear_table_widget(self.main_window.tableWidgetAddresses)
         self.main_window.labelFound.setText("Found: 0")
-    def onFirstScanButtonClicked(self):
-        searchCondition = self.selectedSearchCondition()
-        valueType = self.selectedValueType()
+    def on_first_scan_button_clicked(self):
+        search_condition = self.selected_search_condition()
+        value_type = self.selected_value_type()
         value = int(self.main_window.lineEditValue.text()) # todo: add validation
-        self.search_engine.scanHistory.newScan(self.main_window.checkBoxMappedModulesOption.isChecked(), searchCondition, valueType, value)
-    def onNextScanButtonClicked(self):
-        searchCondition = self.selectedSearchCondition()
+        self.search_engine.scan_history.new_scan(self.main_window.checkBoxMappedModulesOption.isChecked(), search_condition, value_type, value)
+    def on_next_scan_button_clicked(self):
+        search_condition = self.selected_search_condition()
         value = int(self.main_window.lineEditValue.text()) # todo: add validation
-        self.search_engine.scanHistory.nextScan(searchCondition, value)
-    def onUndoLastScanButtonClicked(self):
-        self.search_engine.scanHistory.undoLastScan()
-    def onDisplayIfLessThanValueChanged(self):
-        iterationCount = len(self.search_engine.scanHistory.iterations)
-        if iterationCount == 0:
+        self.search_engine.scan_history.next_scan(search_condition, value)
+    def on_undo_last_scan_button_clicked(self):
+        self.search_engine.scan_history.undo_last_scan()
+    def on_display_if_less_than_value_changed(self):
+        iteration_count = len(self.search_engine.scan_history.iterations)
+        if iteration_count == 0:
             return
-        lastIteration = self.search_engine.scanHistory.iterations[-1]
-        addressCount = len(lastIteration.addresses)
-        displayIfLessThan = self.main_window.spinBoxDisplayIfLessThan.value()
-        if self.main_window.tableWidgetSearchResults.rowCount() == 0 and addressCount < displayIfLessThan:
-            self.updateSearchResultsTable()
-        elif addressCount >= displayIfLessThan:
-            self.clearTableWidget(self.main_window.tableWidgetSearchResults)
-    def updateSearchResultsTable(self):
-        self.clearTableWidget(self.main_window.tableWidgetSearchResults)
-        iterationCount = len(self.search_engine.scanHistory.iterations)
-        if iterationCount == 0:
+        last_iteration = self.search_engine.scan_history.iterations[-1]
+        address_count = len(last_iteration.addresses)
+        display_if_less_than = self.main_window.spinBoxDisplayIfLessThan.value()
+        if self.main_window.tableWidgetSearchResults.rowCount() == 0 and address_count < display_if_less_than:
+            self.update_search_results_table()
+        elif address_count >= display_if_less_than:
+            self.clear_table_widget(self.main_window.tableWidgetSearchResults)
+    def update_search_results_table(self):
+        self.clear_table_widget(self.main_window.tableWidgetSearchResults)
+        iteration_count = len(self.search_engine.scan_history.iterations)
+        if iteration_count == 0:
             return
-        lastIteration = self.search_engine.scanHistory.iterations[-1]
-        addressCount = len(lastIteration.addresses)
-        displayIfLessThan = self.main_window.spinBoxDisplayIfLessThan.value()
-        typeSize = TypeSize(self.search_engine.scanHistory.type)
-        if addressCount < displayIfLessThan:
-            addressIndex = 0
-            while addressIndex < addressCount:
-                valueBytes = VmmPy_MemRead(self.search_engine.pid, lastIteration.addresses[addressIndex], typeSize)
+        last_iteration = self.search_engine.scan_history.iterations[-1]
+        address_count = len(last_iteration.addresses)
+        display_if_less_than = self.main_window.spinBoxDisplayIfLessThan.value()
+        type_size = TypeSize(self.search_engine.scan_history.type)
+        if address_count < display_if_less_than:
+            address_index = 0
+            while address_index < address_count:
+                value_bytes = VmmPy_MemRead(self.search_engine.pid, last_iteration.addresses[address_index], type_size)
                 value = None
-                if self.search_engine.scanHistory.type == ValueType.IntegerType:
-                    value = int.from_bytes(valueBytes, byteorder="little", signed=True)
-                self.main_window.tableWidgetSearchResults.insertRow(addressIndex)
-                addressItem = QTableWidgetItem(hex(lastIteration.addresses[addressIndex]))
-                addressItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                valueItem = QTableWidgetItem(str(value))
-                valueItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                previousValueItem = QTableWidgetItem(str(lastIteration.absoluteValue))
-                previousValueItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                self.main_window.tableWidgetSearchResults.setItem(addressIndex, 0, addressItem)
-                self.main_window.tableWidgetSearchResults.setItem(addressIndex, 1, valueItem)
-                self.main_window.tableWidgetSearchResults.setItem(addressIndex, 2, previousValueItem)
+                if self.search_engine.scan_history.type == ValueType.IntegerType:
+                    value = int.from_bytes(value_bytes, byteorder="little", signed=True)
+                self.main_window.tableWidgetSearchResults.insertRow(address_index)
+                address_item = QTableWidgetItem(hex(last_iteration.addresses[address_index]))
+                address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                value_item = QTableWidgetItem(str(value))
+                value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                previous_value_item = QTableWidgetItem(str(last_iteration.absolute_value))
+                previous_value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+                self.main_window.tableWidgetSearchResults.setItem(address_index, 0, address_item)
+                self.main_window.tableWidgetSearchResults.setItem(address_index, 1, value_item)
+                self.main_window.tableWidgetSearchResults.setItem(address_index, 2, previous_value_item)
                 self.main_window.tableWidgetSearchResults.resizeColumnsToContents()
-                addressIndex += 1
-    def onScanHistoryUpdated(self):
-        iterationCount = len(self.search_engine.scanHistory.iterations)
-        self.main_window.labelIteration.setText("Iteration: " + str(iterationCount))
-        self.main_window.pushButtonFirstScan.setEnabled(iterationCount == 0)
-        self.main_window.pushButtonNextScan.setEnabled(iterationCount > 0)
-        self.main_window.pushButtonUndoScan.setEnabled(iterationCount > 0)
-        self.main_window.labelValueType.setEnabled(iterationCount == 0)
-        self.main_window.comboBoxValueType.setEnabled(iterationCount == 0)
-        self.clearTableWidget(self.main_window.tableWidgetSearchResults)
-        if iterationCount == 0:
+                address_index += 1
+    def on_scan_history_updated(self):
+        iteration_count = len(self.search_engine.scan_history.iterations)
+        self.main_window.labelIteration.setText("Iteration: " + str(iteration_count))
+        self.main_window.pushButtonFirstScan.setEnabled(iteration_count == 0)
+        self.main_window.pushButtonNextScan.setEnabled(iteration_count > 0)
+        self.main_window.pushButtonUndoScan.setEnabled(iteration_count > 0)
+        self.main_window.labelValueType.setEnabled(iteration_count == 0)
+        self.main_window.comboBoxValueType.setEnabled(iteration_count == 0)
+        self.clear_table_widget(self.main_window.tableWidgetSearchResults)
+        if iteration_count == 0:
             self.main_window.labelFound.setText("Found: 0")
             return
-        lastIteration = self.search_engine.scanHistory.iterations[-1]
-        addressCount = len(lastIteration.addresses)
-        self.main_window.labelFound.setText("Found: " + str(addressCount))
-        self.updateSearchResultsTable()
-    def onRefreshFoundValuesButtonClicked(self):
-        self.updateSearchResultsTable() # todo: just sync values, do not clear & refill
-    def onFoundAddressDoubleClicked(self, tableWidgetItem):
-        monitoredValue = MonitoredValue()
-        monitoredValue.type = self.search_engine.scanHistory.type
-        addressIndex = tableWidgetItem.row()
-        lastIteration = self.search_engine.scanHistory.iterations[-1]
-        monitoredValue.address = lastIteration.addresses[addressIndex]
-        self.search_engine.addressMonitor.addValue(monitoredValue)
-    def updateAddressesTable(self):
-        self.clearTableWidget(self.main_window.tableWidgetAddresses)
-        addressCount = len(self.search_engine.addressMonitor.list)
-        addressIndex = 0
+        last_iteration = self.search_engine.scan_history.iterations[-1]
+        address_count = len(last_iteration.addresses)
+        self.main_window.labelFound.setText("Found: " + str(address_count))
+        self.update_search_results_table()
+    def on_refresh_found_values_button_clicked(self):
+        self.update_search_results_table() # todo: just sync values, do not clear & refill
+    def on_found_address_double_clicked(self, table_widget_item):
+        monitored_value = MonitoredValue()
+        monitored_value.type = self.search_engine.scan_history.type
+        address_index = table_widget_item.row()
+        last_iteration = self.search_engine.scan_history.iterations[-1]
+        monitored_value.address = last_iteration.addresses[address_index]
+        self.search_engine.address_monitor.add_value(monitored_value)
+    def update_addresses_table(self):
+        self.clear_table_widget(self.main_window.tableWidgetAddresses)
+        address_count = len(self.search_engine.address_monitor.list)
+        address_index = 0
         self.main_window.tableWidgetAddresses.insertingData = True
-        while addressIndex < addressCount:
-            monitoredValue = self.search_engine.addressMonitor.list[addressIndex]
-            valueBytes = VmmPy_MemRead(self.search_engine.pid, monitoredValue.address, TypeSize(monitoredValue.type))
+        while address_index < address_count:
+            monitored_value = self.search_engine.address_monitor.list[address_index]
+            value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, TypeSize(monitored_value.type))
             value = None
-            if monitoredValue.type == ValueType.IntegerType:
-                value = int.from_bytes(valueBytes, byteorder="little", signed=True)
-            self.main_window.tableWidgetAddresses.insertRow(addressIndex)
-            descriptionItem = QTableWidgetItem(monitoredValue.description)
-            descriptionItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            addressItem = QTableWidgetItem(hex(monitoredValue.address))
-            addressItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            typeItem = QTableWidgetItem(ValueTypeToString(monitoredValue.type))
-            typeItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            valueItem= QTableWidgetItem(str(value))
-            valueItem.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
-            self.main_window.tableWidgetAddresses.setItem(addressIndex, 0, descriptionItem)
-            self.main_window.tableWidgetAddresses.setItem(addressIndex, 1, addressItem)
-            self.main_window.tableWidgetAddresses.setItem(addressIndex, 2, typeItem)
-            self.main_window.tableWidgetAddresses.setItem(addressIndex, 3, valueItem)
+            if monitored_value.type == ValueType.IntegerType:
+                value = int.from_bytes(value_bytes, byteorder="little", signed=True)
+            self.main_window.tableWidgetAddresses.insertRow(address_index)
+            description_item = QTableWidgetItem(monitored_value.description)
+            description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            address_item = QTableWidgetItem(hex(monitored_value.address))
+            address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            type_item = QTableWidgetItem(ValueTypeToString(monitored_value.type))
+            type_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            value_item= QTableWidgetItem(str(value))
+            value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
+            self.main_window.tableWidgetAddresses.setItem(address_index, 0, description_item)
+            self.main_window.tableWidgetAddresses.setItem(address_index, 1, address_item)
+            self.main_window.tableWidgetAddresses.setItem(address_index, 2, type_item)
+            self.main_window.tableWidgetAddresses.setItem(address_index, 3, value_item)
             self.main_window.tableWidgetAddresses.resizeColumnsToContents()
-            addressIndex += 1
+            address_index += 1
         self.main_window.tableWidgetAddresses.insertingData = False
-    def onMonitoredValueChanged(self, row, column):
+    def on_monitored_value_changed(self, row, column):
         if self.main_window.tableWidgetAddresses.insertingData == True:
             return
         if column == 3:
-            monitoredValue = self.search_engine.addressMonitor.list[row]
-            address = monitoredValue.address
-            size = TypeSize(monitoredValue.type)
-            newValueAsString = self.main_window.tableWidgetAddresses.item(row, column).text()
-            newValueBytes = None
-            if monitoredValue.type == ValueType.IntegerType:
-                newValueBytes = (int(newValueAsString)).to_bytes(size, byteorder="little", signed=True)
-            VmmPy_MemWrite(self.search_engine.pid, address, newValueBytes)
+            monitored_value = self.search_engine.address_monitor.list[row]
+            address = monitored_value.address
+            size = TypeSize(monitored_value.type)
+            new_value_as_string = self.main_window.tableWidgetAddresses.item(row, column).text()
+            new_value_bytes = None
+            if monitored_value.type == ValueType.IntegerType:
+                new_value_bytes = (int(new_value_as_string)).to_bytes(size, byteorder="little", signed=True)
+            VmmPy_MemWrite(self.search_engine.pid, address, new_value_bytes)
