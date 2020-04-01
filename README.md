@@ -21,3 +21,5 @@ Put the files into MemProcFS folder next to vmmpy.py, then run
 ```
 python RemoteMemoryScanner.py
 ```
+
+If you are planning on modifying the source code, you can also use "deploy.ps1" PowerShell script.
