@@ -7,7 +7,7 @@ from SearchEngine import *
 class UserInterface():
     def __init__(self, search_engine):
         self.search_engine = search_engine
-        self.search_engine.pid_changed.connect(self.on_pid_changed)
+        self.search_engine.callback_pid_changed = self.on_pid_changed
         self.init_main_window()
         self.init_open_process_dialog()
     def clear_table_widget(self, table_widget):
@@ -39,8 +39,8 @@ class UserInterface():
         self.main_window.spinBoxDisplayIfLessThan.valueChanged.connect(self.on_display_if_less_than_value_changed)
         self.main_window.pushButtonRefreshFoundValues.clicked.connect(self.on_refresh_found_values_button_clicked)
         self.main_window.tableWidgetAddresses.cellChanged.connect(self.on_monitored_value_changed)
-        self.search_engine.scan_history.updated.connect(self.on_scan_history_updated)
-        self.search_engine.address_monitor.updated.connect(self.update_addresses_table)
+        self.search_engine.scan_history.callback_updated = self.on_scan_history_updated
+        self.search_engine.address_monitor.callback_updated = self.update_addresses_table
     def init_open_process_dialog(self):
         ui_loader = QUiLoader()
         ui_file = QFile("RemoteMemoryScanner/OpenProcessDialog.ui")
@@ -55,7 +55,7 @@ class UserInterface():
         self.open_process_dialog.pushButtonOpen.clicked.connect(self.on_open_process_button_clicked)
         self.open_process_dialog.pushButtonRefresh.clicked.connect(self.search_engine.process_list.refresh)
         self.open_process_dialog.checkBoxFilterByName.toggled.connect(self.refresh_process_list)
-        self.search_engine.process_list.updated.connect(self.refresh_process_list)
+        self.search_engine.process_list.callback_updated = self.refresh_process_list
     def on_show_open_process_action_triggered(self):
         self.search_engine.process_list.refresh()
         self.open_process_dialog.show()

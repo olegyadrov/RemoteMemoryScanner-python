@@ -1,6 +1,5 @@
 from enum import *
 from vmmpy import *
-from PySide2.QtCore import *
 
 class ValueType(IntEnum):
     ONE_BYTE = 0
@@ -53,14 +52,14 @@ def ConvertValueToBytes(value, value_type):
         return_value = (value.to_bytes(TypeSize(value_type), byteorder="little", signed=True))
     return return_value
 
-class ProcessList(QObject):
-    updated = Signal()
+class ProcessList():
     def __init__(self):
-        super().__init__()
+        self.callback_updated = None
         self.list = []
     def refresh(self):
         self.list = VmmPy_ProcessListInformation()
-        self.updated.emit()
+        if callable(self.callback_updated):
+            self.callback_updated()
 
 class ScanIteration():
     def __init__(self):
@@ -69,11 +68,10 @@ class ScanIteration():
         self.absolute_value = 0
         self.addresses = []
 
-class ScanHistory(QObject):
+class ScanHistory():
     MAX_READ_SIZE = 16777216 # VMMPYC_MemRead limitation (16 mb)
-    updated = Signal()
     def __init__(self, search_engine):
-        super().__init__()
+        self.callback_updated = None
         self.search_engine = search_engine
         self.include_mapped_modules = False
         self.type = None
@@ -86,7 +84,8 @@ class ScanHistory(QObject):
     def undo_last_scan(self):
         if len(self.iterations) > 0:
             del self.iterations[-1]
-            self.updated.emit()
+            if callable(self.callback_updated):
+                self.callback_updated()
     def next_scan(self, search_condition, value):
         type_size = TypeSize(self.type)
         scan_iteration = ScanIteration()
@@ -125,7 +124,8 @@ class ScanHistory(QObject):
                     else:
                         read_size = min([self.MAX_READ_SIZE, end_address - read_address])
         self.iterations.append(scan_iteration)
-        self.updated.emit()
+        if callable(self.callback_updated):
+            self.callback_updated()
 
 class MonitoredValue():
     def __init__(self):
@@ -133,26 +133,26 @@ class MonitoredValue():
         self.type = None
         self.description = ""
 
-class AddressMonitor(QObject):
-    updated = Signal()
+class AddressMonitor():
     def __init__(self):
-        super().__init__()
+        self.callback_updated = None
         self.list = []
     def add_value(self, value):
         if not isinstance(value, MonitoredValue):
             return
         self.list.append(value)
-        self.updated.emit()
+        if callable(self.callback_updated):
+            self.callback_updated()
     def remove_value_at_index(self, index):
         if index >= 0 and index < len(self.list):
             del self.list[index]
-            self.updated.emit()
+            if callable(self.callback_updated):
+                self.callback_updated()
 
-class SearchEngine(QObject):
-    pid_changed = Signal()
+class SearchEngine():
     def __init__(self):
-        super().__init__()
         VmmPy_Initialize(['-device', 'fpga'])
+        self.callback_pid_changed = None
         self.pid = -1
         self.process_list = ProcessList()
         self.scan_history = ScanHistory(self)
@@ -161,4 +161,5 @@ class SearchEngine(QObject):
         VmmPy_Close()
     def set_pid(self, pid):
         self.pid = pid
-        self.pid_changed.emit()
+        if callable(self.callback_pid_changed):
+            self.callback_pid_changed()
