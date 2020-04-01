@@ -1,4 +1,3 @@
-from enum import Enum
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
@@ -14,16 +13,6 @@ class UserInterface():
     def clear_table_widget(self, table_widget):
         while table_widget.rowCount() > 0:
             table_widget.removeRow(0)
-    def selected_search_condition(self):
-        switcher = {
-            0: SearchCondition.ExactValue
-        }
-        return switcher.get(self.main_window.comboBoxScanType, SearchCondition.ExactValue)
-    def selected_value_type(self):
-        switcher = {
-            0: ValueType.IntegerType
-        }
-        return switcher.get(self.main_window.comboBoxValueType, ValueType.IntegerType)
     def init_main_window(self):
         ui_loader = QUiLoader()
         ui_file = QFile("RemoteMemoryScanner/MainWindow.ui")
@@ -38,6 +27,11 @@ class UserInterface():
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(1).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(3).setTextAlignment(Qt.AlignLeft)
+        for value_type in ValueType:
+            self.main_window.comboBoxValueType.addItem(ValueTypeAsHumanReadableString(value_type))
+        self.main_window.comboBoxValueType.setCurrentIndex(ValueType.FOUR_BYTES)
+        for search_condition in SearchCondition:
+            self.main_window.comboBoxScanType.addItem(SearchConditionAsHumanReadableString(search_condition))
         self.main_window.actionOpenProcess.triggered.connect(self.on_show_open_process_action_triggered)
         self.main_window.pushButtonFirstScan.clicked.connect(self.on_first_scan_button_clicked)
         self.main_window.pushButtonNextScan.clicked.connect(self.on_next_scan_button_clicked)
@@ -117,18 +111,18 @@ class UserInterface():
         self.main_window.comboBoxScanType.setCurrentIndex(0)
         self.main_window.labelValueType.setEnabled(controls_enabled)
         self.main_window.comboBoxValueType.setEnabled(controls_enabled)
-        self.main_window.comboBoxValueType.setCurrentIndex(0)
+        self.main_window.comboBoxValueType.setCurrentIndex(ValueType.FOUR_BYTES)
         self.main_window.groupBoxMemoryScanOptions.setEnabled(controls_enabled)
         self.clear_table_widget(self.main_window.tableWidgetSearchResults)
         self.clear_table_widget(self.main_window.tableWidgetAddresses)
         self.main_window.labelFound.setText("Found: 0")
     def on_first_scan_button_clicked(self):
-        search_condition = self.selected_search_condition()
-        value_type = self.selected_value_type()
+        search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
+        value_type = ValueType(self.main_window.comboBoxValueType.currentIndex())
         value = int(self.main_window.lineEditValue.text()) # todo: add validation
         self.search_engine.scan_history.new_scan(self.main_window.checkBoxMappedModulesOption.isChecked(), search_condition, value_type, value)
     def on_next_scan_button_clicked(self):
-        search_condition = self.selected_search_condition()
+        search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
         value = int(self.main_window.lineEditValue.text()) # todo: add validation
         self.search_engine.scan_history.next_scan(search_condition, value)
     def on_undo_last_scan_button_clicked(self):
@@ -157,9 +151,7 @@ class UserInterface():
             address_index = 0
             while address_index < address_count:
                 value_bytes = VmmPy_MemRead(self.search_engine.pid, last_iteration.addresses[address_index], type_size)
-                value = None
-                if self.search_engine.scan_history.type == ValueType.IntegerType:
-                    value = int.from_bytes(value_bytes, byteorder="little", signed=True)
+                value = ConvertBytesToValue(value_bytes, self.search_engine.scan_history.type)
                 self.main_window.tableWidgetSearchResults.insertRow(address_index)
                 address_item = QTableWidgetItem(hex(last_iteration.addresses[address_index]))
                 address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
@@ -205,15 +197,13 @@ class UserInterface():
         while address_index < address_count:
             monitored_value = self.search_engine.address_monitor.list[address_index]
             value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, TypeSize(monitored_value.type))
-            value = None
-            if monitored_value.type == ValueType.IntegerType:
-                value = int.from_bytes(value_bytes, byteorder="little", signed=True)
+            value = ConvertBytesToValue(value_bytes, monitored_value.type)
             self.main_window.tableWidgetAddresses.insertRow(address_index)
             description_item = QTableWidgetItem(monitored_value.description)
             description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             address_item = QTableWidgetItem(hex(monitored_value.address))
             address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            type_item = QTableWidgetItem(ValueTypeToString(monitored_value.type))
+            type_item = QTableWidgetItem(ValueTypeAsHumanReadableString(monitored_value.type))
             type_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             value_item= QTableWidgetItem(str(value))
             value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
@@ -232,7 +222,5 @@ class UserInterface():
             address = monitored_value.address
             size = TypeSize(monitored_value.type)
             new_value_as_string = self.main_window.tableWidgetAddresses.item(row, column).text()
-            new_value_bytes = None
-            if monitored_value.type == ValueType.IntegerType:
-                new_value_bytes = (int(new_value_as_string)).to_bytes(size, byteorder="little", signed=True)
+            new_value_bytes = ConvertValueToBytes(int(new_value_as_string), monitored_value.type)
             VmmPy_MemWrite(self.search_engine.pid, address, new_value_bytes)

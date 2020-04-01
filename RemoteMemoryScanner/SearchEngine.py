@@ -1,24 +1,57 @@
-from enum import Enum
+from enum import *
 from vmmpy import *
 from PySide2.QtCore import *
 
-class ValueType(Enum):
-    IntegerType = 0
+class ValueType(IntEnum):
+    ONE_BYTE = 0
+    TWO_BYTES = 1
+    FOUR_BYTES = 2
+    EIGHT_BYTES = 3
 
 def TypeSize(value_type):
     switcher = {
-        ValueType.IntegerType: 4
+        ValueType.ONE_BYTE: 1,
+        ValueType.TWO_BYTES: 2,
+        ValueType.FOUR_BYTES: 4,
+        ValueType.EIGHT_BYTES: 8
     }
     return switcher.get(value_type, 0)
 
-def ValueTypeToString(value_type):
+def ValueTypeAsHumanReadableString(value_type):
     switcher = {
-        ValueType.IntegerType: "Integer"
+        ValueType.ONE_BYTE: "Byte",
+        ValueType.TWO_BYTES: "2 Bytes",
+        ValueType.FOUR_BYTES: "4 Bytes",
+        ValueType.EIGHT_BYTES: "8 Bytes"
     }
     return switcher.get(value_type, "Unknown")
 
-class SearchCondition(Enum):
-    ExactValue = 0
+class SearchCondition(IntEnum):
+    EXACT_VALUE = 0
+
+def SearchConditionAsHumanReadableString(search_condition):
+    switcher = {
+        SearchCondition.EXACT_VALUE: "Exact Value"
+    }
+    return switcher.get(search_condition, "Unknown")
+
+def ConvertBytesToValue(bytes, value_type):
+    return_value = None
+    if value_type == ValueType.ONE_BYTE or \
+        value_type == ValueType.TWO_BYTES or \
+        value_type == ValueType.FOUR_BYTES or \
+        value_type == ValueType.EIGHT_BYTES:
+        return_value = int.from_bytes(bytes, byteorder="little", signed=True)
+    return return_value
+
+def ConvertValueToBytes(value, value_type):
+    return_value = None
+    if value_type == ValueType.ONE_BYTE or \
+        value_type == ValueType.TWO_BYTES or \
+        value_type == ValueType.FOUR_BYTES or \
+        value_type == ValueType.EIGHT_BYTES:
+        return_value = (value.to_bytes(TypeSize(value_type), byteorder="little", signed=True))
+    return return_value
 
 class ProcessList(QObject):
     updated = Signal()
@@ -31,7 +64,7 @@ class ProcessList(QObject):
 
 class ScanIteration():
     def __init__(self):
-        self.search_condition = SearchCondition.ExactValue
+        self.search_condition = None
         self.search_value = 0
         self.absolute_value = 0
         self.addresses = []
@@ -43,7 +76,7 @@ class ScanHistory(QObject):
         super().__init__()
         self.search_engine = search_engine
         self.include_mapped_modules = False
-        self.type = ValueType.IntegerType
+        self.type = None
         self.iterations = []
     def new_scan(self, include_mapped_modules, search_condition, value_type, value):
         self.include_mapped_modules = include_mapped_modules
@@ -64,8 +97,8 @@ class ScanHistory(QObject):
             #scan_iteration.absolute_value += last_iteration.search_value
             for address in last_iteration.addresses:
                 test_bytes = VmmPy_MemRead(self.search_engine.pid, address, type_size)
-                test_number = int.from_bytes(test_bytes, byteorder="little", signed=True)
-                if search_condition == SearchCondition.ExactValue and test_number == scan_iteration.absolute_value:
+                test_number = ConvertBytesToValue(test_bytes, self.type)
+                if search_condition == SearchCondition.EXACT_VALUE and test_number == scan_iteration.absolute_value:
                     scan_iteration.addresses.append(address)
         else:
             pte_map = VmmPy_ProcessGetPteMap(self.search_engine.pid, True)
@@ -81,9 +114,9 @@ class ScanHistory(QObject):
                     memoryBuffer = VmmPy_MemRead(self.search_engine.pid, read_address, read_size)
                     offset = 0
                     while offset < memory_region_size - type_size:
-                        testBytes = memoryBuffer[offset:offset+type_size]
-                        testNumber = int.from_bytes(testBytes, byteorder="little", signed=True)
-                        if search_condition == SearchCondition.ExactValue and testNumber == scan_iteration.absolute_value:
+                        test_bytes = memoryBuffer[offset:offset+type_size]
+                        test_number = ConvertBytesToValue(test_bytes, self.type)
+                        if search_condition == SearchCondition.EXACT_VALUE and test_number == scan_iteration.absolute_value:
                             scan_iteration.addresses.append(read_address + offset)
                         offset += 1
                     read_address = read_address + read_size - type_size + 1
@@ -97,7 +130,7 @@ class ScanHistory(QObject):
 class MonitoredValue():
     def __init__(self):
         self.address = 0
-        self.type = ValueType.IntegerType
+        self.type = None
         self.description = ""
 
 class AddressMonitor(QObject):
