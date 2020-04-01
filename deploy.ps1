@@ -5,4 +5,5 @@ Copy-Item ".\RemoteMemoryScanner\MainWindow.ui" -Destination "$memprocfs_locatio
 Copy-Item ".\RemoteMemoryScanner\OpenProcessDialog.ui" -Destination "$memprocfs_location\RemoteMemoryScanner\OpenProcessDialog.ui" -force
 Copy-Item ".\RemoteMemoryScanner\SearchEngine.py" -Destination "$memprocfs_location\RemoteMemoryScanner\SearchEngine.py" -force
 Copy-Item ".\RemoteMemoryScanner\UserInterface.py" -Destination "$memprocfs_location\RemoteMemoryScanner\UserInterface.py" -force
-python "$memprocfs_location\RemoteMemoryScanner.py"
+cd $memprocfs_location
+python "RemoteMemoryScanner.py"
