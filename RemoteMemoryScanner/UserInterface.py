@@ -18,9 +18,10 @@ class UserInterface():
         ui_file = QFile("RemoteMemoryScanner/MainWindow.ui")
         ui_file.open(QFile.ReadOnly)
         self.main_window = ui_loader.load(ui_file)
+        self.main_window.labelAndValue.setVisible(False)
+        self.main_window.lineEditValueTo.setVisible(False)
         self.main_window.tableWidgetSearchResults.horizontalHeaderItem(0).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetSearchResults.horizontalHeaderItem(1).setTextAlignment(Qt.AlignLeft)
-        self.main_window.tableWidgetSearchResults.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetSearchResults.itemDoubleClicked.connect(self.on_found_address_double_clicked)
         self.main_window.tableWidgetAddresses.insertingData = False # quick hack; todo: get rid of this and use QTableView instead of QTableWidget
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(0).setTextAlignment(Qt.AlignLeft)
@@ -32,6 +33,7 @@ class UserInterface():
         self.main_window.comboBoxValueType.setCurrentIndex(ValueType.FOUR_BYTES)
         for search_condition in SearchCondition:
             self.main_window.comboBoxScanType.addItem(SearchConditionAsHumanReadableString(search_condition))
+        self.main_window.comboBoxScanType.currentIndexChanged.connect(self.on_scan_type_selected)
         self.main_window.actionOpenProcess.triggered.connect(self.on_show_open_process_action_triggered)
         self.main_window.pushButtonFirstScan.clicked.connect(self.on_first_scan_button_clicked)
         self.main_window.pushButtonNextScan.clicked.connect(self.on_next_scan_button_clicked)
@@ -104,8 +106,11 @@ class UserInterface():
         self.main_window.labelSelectedProcess.setText(process_name)
         self.main_window.pushButtonFirstScan.setEnabled(controls_enabled)
         self.main_window.labelValue.setEnabled(controls_enabled)
-        self.main_window.lineEditValue.setEnabled(controls_enabled)
-        self.main_window.lineEditValue.setText("")
+        self.main_window.lineEditValueFrom.setEnabled(controls_enabled)
+        self.main_window.lineEditValueFrom.setText("")
+        self.main_window.labelAndValue.setEnabled(controls_enabled)
+        self.main_window.lineEditValueTo.setEnabled(controls_enabled)
+        self.main_window.lineEditValueTo.setText("")
         self.main_window.labelScanType.setEnabled(controls_enabled)
         self.main_window.comboBoxScanType.setEnabled(controls_enabled)
         self.main_window.comboBoxScanType.setCurrentIndex(0)
@@ -116,14 +121,33 @@ class UserInterface():
         self.clear_table_widget(self.main_window.tableWidgetSearchResults)
         self.clear_table_widget(self.main_window.tableWidgetAddresses)
         self.main_window.labelFound.setText("Found: 0")
+    def on_scan_type_selected(self):
+        search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
+        show_to_value_line_edit = (search_condition == SearchCondition.VALUE_BETWEEN)
+        self.main_window.labelAndValue.setVisible(show_to_value_line_edit)
+        self.main_window.lineEditValueTo.setVisible(show_to_value_line_edit)
     def on_first_scan_button_clicked(self):
         search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
         value_type = ValueType(self.main_window.comboBoxValueType.currentIndex())
-        value = int(self.main_window.lineEditValue.text()) # todo: add validation
+        value = None
+        if search_condition == SearchCondition.VALUE_BETWEEN:
+            value = {
+                "from": int(self.main_window.lineEditValueFrom.text()), # todo: add validation
+                "to": int(self.main_window.lineEditValueTo.text()) # todo: add validation
+            }
+        else:
+            value = int(self.main_window.lineEditValueFrom.text()) # todo: add validation
         self.search_engine.scan_history.new_scan(self.main_window.checkBoxMappedModulesOption.isChecked(), search_condition, value_type, value)
     def on_next_scan_button_clicked(self):
         search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
-        value = int(self.main_window.lineEditValue.text()) # todo: add validation
+        value = None
+        if search_condition == SearchCondition.VALUE_BETWEEN:
+            value = {
+                "from": int(self.main_window.lineEditValueFrom.text()), # todo: add validation
+                "to": int(self.main_window.lineEditValueTo.text()) # todo: add validation
+            }
+        else:
+            value = int(self.main_window.lineEditValueFrom.text()) # todo: add validation
         self.search_engine.scan_history.next_scan(search_condition, value)
     def on_undo_last_scan_button_clicked(self):
         self.search_engine.scan_history.undo_last_scan()
@@ -132,7 +156,7 @@ class UserInterface():
         if iteration_count == 0:
             return
         last_iteration = self.search_engine.scan_history.iterations[-1]
-        address_count = len(last_iteration.addresses)
+        address_count = len(last_iteration.found_addresses)
         display_if_less_than = self.main_window.spinBoxDisplayIfLessThan.value()
         if self.main_window.tableWidgetSearchResults.rowCount() == 0 and address_count < display_if_less_than:
             self.update_search_results_table()
@@ -144,24 +168,21 @@ class UserInterface():
         if iteration_count == 0:
             return
         last_iteration = self.search_engine.scan_history.iterations[-1]
-        address_count = len(last_iteration.addresses)
+        address_count = len(last_iteration.found_addresses)
         display_if_less_than = self.main_window.spinBoxDisplayIfLessThan.value()
-        type_size = TypeSize(self.search_engine.scan_history.type)
+        type_size = TypeSize(self.search_engine.scan_history.value_type)
         if address_count < display_if_less_than:
             address_index = 0
             while address_index < address_count:
-                value_bytes = VmmPy_MemRead(self.search_engine.pid, last_iteration.addresses[address_index], type_size)
-                value = ConvertBytesToValue(value_bytes, self.search_engine.scan_history.type)
+                value_bytes = VmmPy_MemRead(self.search_engine.pid, last_iteration.found_addresses[address_index], type_size)
+                value = ConvertBytesToValue(value_bytes, self.search_engine.scan_history.value_type)
                 self.main_window.tableWidgetSearchResults.insertRow(address_index)
-                address_item = QTableWidgetItem(hex(last_iteration.addresses[address_index]))
+                address_item = QTableWidgetItem(hex(last_iteration.found_addresses[address_index]))
                 address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 value_item = QTableWidgetItem(str(value))
                 value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-                previous_value_item = QTableWidgetItem(str(last_iteration.absolute_value))
-                previous_value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
                 self.main_window.tableWidgetSearchResults.setItem(address_index, 0, address_item)
                 self.main_window.tableWidgetSearchResults.setItem(address_index, 1, value_item)
-                self.main_window.tableWidgetSearchResults.setItem(address_index, 2, previous_value_item)
                 self.main_window.tableWidgetSearchResults.resizeColumnsToContents()
                 address_index += 1
     def on_scan_history_updated(self):
@@ -177,17 +198,17 @@ class UserInterface():
             self.main_window.labelFound.setText("Found: 0")
             return
         last_iteration = self.search_engine.scan_history.iterations[-1]
-        address_count = len(last_iteration.addresses)
+        address_count = len(last_iteration.found_addresses)
         self.main_window.labelFound.setText("Found: " + str(address_count))
         self.update_search_results_table()
     def on_refresh_found_values_button_clicked(self):
         self.update_search_results_table() # todo: just sync values, do not clear & refill
     def on_found_address_double_clicked(self, table_widget_item):
         monitored_value = MonitoredValue()
-        monitored_value.type = self.search_engine.scan_history.type
+        monitored_value.value_type = self.search_engine.scan_history.value_type
         address_index = table_widget_item.row()
         last_iteration = self.search_engine.scan_history.iterations[-1]
-        monitored_value.address = last_iteration.addresses[address_index]
+        monitored_value.address = last_iteration.found_addresses[address_index]
         self.search_engine.address_monitor.add_value(monitored_value)
     def update_addresses_table(self):
         self.clear_table_widget(self.main_window.tableWidgetAddresses)
@@ -196,14 +217,14 @@ class UserInterface():
         self.main_window.tableWidgetAddresses.insertingData = True
         while address_index < address_count:
             monitored_value = self.search_engine.address_monitor.list[address_index]
-            value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, TypeSize(monitored_value.type))
-            value = ConvertBytesToValue(value_bytes, monitored_value.type)
+            value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, TypeSize(monitored_value.value_type))
+            value = ConvertBytesToValue(value_bytes, monitored_value.value_type)
             self.main_window.tableWidgetAddresses.insertRow(address_index)
             description_item = QTableWidgetItem(monitored_value.description)
             description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             address_item = QTableWidgetItem(hex(monitored_value.address))
             address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            type_item = QTableWidgetItem(ValueTypeAsHumanReadableString(monitored_value.type))
+            type_item = QTableWidgetItem(ValueTypeAsHumanReadableString(monitored_value.value_type))
             type_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             value_item= QTableWidgetItem(str(value))
             value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
@@ -220,7 +241,7 @@ class UserInterface():
         if column == 3:
             monitored_value = self.search_engine.address_monitor.list[row]
             address = monitored_value.address
-            size = TypeSize(monitored_value.type)
+            size = TypeSize(monitored_value.value_type)
             new_value_as_string = self.main_window.tableWidgetAddresses.item(row, column).text()
-            new_value_bytes = ConvertValueToBytes(int(new_value_as_string), monitored_value.type)
+            new_value_bytes = ConvertValueToBytes(int(new_value_as_string), monitored_value.value_type)
             VmmPy_MemWrite(self.search_engine.pid, address, new_value_bytes)

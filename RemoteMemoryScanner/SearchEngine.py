@@ -27,10 +27,16 @@ def ValueTypeAsHumanReadableString(value_type):
 
 class SearchCondition(IntEnum):
     EXACT_VALUE = 0
+    BIGGER_THAN = 1
+    SMALLER_THAN = 2
+    VALUE_BETWEEN = 3
 
 def SearchConditionAsHumanReadableString(search_condition):
     switcher = {
-        SearchCondition.EXACT_VALUE: "Exact Value"
+        SearchCondition.EXACT_VALUE: "Exact Value",
+        SearchCondition.BIGGER_THAN: "Bigger than...",
+        SearchCondition.SMALLER_THAN: "Smaller than...",
+        SearchCondition.VALUE_BETWEEN: "Value between..."
     }
     return switcher.get(search_condition, "Unknown")
 
@@ -52,6 +58,16 @@ def ConvertValueToBytes(value, value_type):
         return_value = (value.to_bytes(TypeSize(value_type), byteorder="little", signed=True))
     return return_value
 
+def CheckValue(search_condition, search_value, value):
+    if search_condition == SearchCondition.EXACT_VALUE:
+        return (value == search_value)
+    elif search_condition == SearchCondition.BIGGER_THAN:
+        return (value > search_value)
+    elif search_condition == SearchCondition.SMALLER_THAN:
+        return (value < search_value)
+    elif search_condition == SearchCondition.VALUE_BETWEEN:
+        return (value > search_value["from"] and value < search_value["to"])
+
 class ProcessList():
     def __init__(self):
         self.callback_updated = None
@@ -65,8 +81,8 @@ class ScanIteration():
     def __init__(self):
         self.search_condition = None
         self.search_value = 0
-        self.absolute_value = 0
-        self.addresses = []
+        self.absolute_search_value = 0
+        self.found_addresses = []
 
 class ScanHistory():
     MAX_READ_SIZE = 16777216 # VMMPYC_MemRead limitation (16 mb)
@@ -74,11 +90,11 @@ class ScanHistory():
         self.callback_updated = None
         self.search_engine = search_engine
         self.include_mapped_modules = False
-        self.type = None
+        self.value_type = None
         self.iterations = []
     def new_scan(self, include_mapped_modules, search_condition, value_type, value):
         self.include_mapped_modules = include_mapped_modules
-        self.type = value_type
+        self.value_type = value_type
         self.iterations = []
         self.next_scan(search_condition, value)
     def undo_last_scan(self):
@@ -87,19 +103,22 @@ class ScanHistory():
             if callable(self.callback_updated):
                 self.callback_updated()
     def next_scan(self, search_condition, value):
-        type_size = TypeSize(self.type)
+        type_size = TypeSize(self.value_type)
         scan_iteration = ScanIteration()
         scan_iteration.search_value = value
-        scan_iteration.absolute_value = value
-        if len(self.iterations) > 0:
+        if search_condition == SearchCondition.EXACT_VALUE or \
+            search_condition == SearchCondition.BIGGER_THAN or \
+            search_condition == SearchCondition.SMALLER_THAN or \
+            search_condition == SearchCondition.VALUE_BETWEEN:
+            scan_iteration.absolute_search_value = value
+        if len(self.iterations) > 0: # second or the following scan
             last_iteration = self.iterations[-1]
-            #scan_iteration.absolute_value += last_iteration.search_value
-            for address in last_iteration.addresses:
+            for address in last_iteration.found_addresses:
                 test_bytes = VmmPy_MemRead(self.search_engine.pid, address, type_size)
-                test_number = ConvertBytesToValue(test_bytes, self.type)
-                if search_condition == SearchCondition.EXACT_VALUE and test_number == scan_iteration.absolute_value:
-                    scan_iteration.addresses.append(address)
-        else:
+                test_value = ConvertBytesToValue(test_bytes, self.value_type)
+                if CheckValue(search_condition, scan_iteration.absolute_search_value, test_value):
+                    scan_iteration.found_addresses.append(address)
+        else: # first scan
             pte_map = VmmPy_ProcessGetPteMap(self.search_engine.pid, True)
             for memory_region in pte_map:
                 if memory_region["tag"] and not self.include_mapped_modules:
@@ -114,9 +133,9 @@ class ScanHistory():
                     offset = 0
                     while offset < memory_region_size - type_size:
                         test_bytes = memoryBuffer[offset:offset+type_size]
-                        test_number = ConvertBytesToValue(test_bytes, self.type)
-                        if search_condition == SearchCondition.EXACT_VALUE and test_number == scan_iteration.absolute_value:
-                            scan_iteration.addresses.append(read_address + offset)
+                        test_value = ConvertBytesToValue(test_bytes, self.value_type)
+                        if CheckValue(search_condition, scan_iteration.absolute_search_value, test_value):
+                            scan_iteration.found_addresses.append(read_address + offset)
                         offset += 1
                     read_address = read_address + read_size - type_size + 1
                     if read_size != self.MAX_READ_SIZE:
@@ -130,7 +149,7 @@ class ScanHistory():
 class MonitoredValue():
     def __init__(self):
         self.address = 0
-        self.type = None
+        self.value_type = None
         self.description = ""
 
 class AddressMonitor():
