@@ -7,66 +7,68 @@ class ValueType(IntEnum):
     FOUR_BYTES = 2
     EIGHT_BYTES = 3
 
-def TypeSize(value_type):
-    switcher = {
-        ValueType.ONE_BYTE: 1,
-        ValueType.TWO_BYTES: 2,
-        ValueType.FOUR_BYTES: 4,
-        ValueType.EIGHT_BYTES: 8
-    }
-    return switcher.get(value_type, 0)
-
-def ValueTypeAsHumanReadableString(value_type):
-    switcher = {
-        ValueType.ONE_BYTE: "Byte",
-        ValueType.TWO_BYTES: "2 Bytes",
-        ValueType.FOUR_BYTES: "4 Bytes",
-        ValueType.EIGHT_BYTES: "8 Bytes"
-    }
-    return switcher.get(value_type, "Unknown")
-
 class SearchCondition(IntEnum):
     EXACT_VALUE = 0
     BIGGER_THAN = 1
     SMALLER_THAN = 2
     VALUE_BETWEEN = 3
 
-def SearchConditionAsHumanReadableString(search_condition):
-    switcher = {
-        SearchCondition.EXACT_VALUE: "Exact Value",
-        SearchCondition.BIGGER_THAN: "Bigger than...",
-        SearchCondition.SMALLER_THAN: "Smaller than...",
-        SearchCondition.VALUE_BETWEEN: "Value between..."
-    }
-    return switcher.get(search_condition, "Unknown")
-
-def ConvertBytesToValue(bytes, value_type):
-    return_value = None
-    if value_type == ValueType.ONE_BYTE or \
-        value_type == ValueType.TWO_BYTES or \
-        value_type == ValueType.FOUR_BYTES or \
-        value_type == ValueType.EIGHT_BYTES:
-        return_value = int.from_bytes(bytes, byteorder="little", signed=True)
-    return return_value
-
-def ConvertValueToBytes(value, value_type):
-    return_value = None
-    if value_type == ValueType.ONE_BYTE or \
-        value_type == ValueType.TWO_BYTES or \
-        value_type == ValueType.FOUR_BYTES or \
-        value_type == ValueType.EIGHT_BYTES:
-        return_value = (value.to_bytes(TypeSize(value_type), byteorder="little", signed=True))
-    return return_value
-
-def CheckValue(search_condition, search_value, value):
-    if search_condition == SearchCondition.EXACT_VALUE:
-        return (value == search_value)
-    elif search_condition == SearchCondition.BIGGER_THAN:
-        return (value > search_value)
-    elif search_condition == SearchCondition.SMALLER_THAN:
-        return (value < search_value)
-    elif search_condition == SearchCondition.VALUE_BETWEEN:
-        return (value > search_value["from"] and value < search_value["to"])
+class SearchUtils():
+    @staticmethod
+    def type_size(value_type):
+        switcher = {
+            ValueType.ONE_BYTE: 1,
+            ValueType.TWO_BYTES: 2,
+            ValueType.FOUR_BYTES: 4,
+            ValueType.EIGHT_BYTES: 8
+        }
+        return switcher.get(value_type, 0)
+    @staticmethod
+    def value_type_as_human_readable_string(value_type):
+        switcher = {
+            ValueType.ONE_BYTE: "Byte",
+            ValueType.TWO_BYTES: "2 Bytes",
+            ValueType.FOUR_BYTES: "4 Bytes",
+            ValueType.EIGHT_BYTES: "8 Bytes"
+        }
+        return switcher.get(value_type, "Unknown")
+    @staticmethod
+    def search_condition_as_human_readable_string(search_condition):
+        switcher = {
+            SearchCondition.EXACT_VALUE: "Exact Value",
+            SearchCondition.BIGGER_THAN: "Bigger than...",
+            SearchCondition.SMALLER_THAN: "Smaller than...",
+            SearchCondition.VALUE_BETWEEN: "Value between..."
+        }
+        return switcher.get(search_condition, "Unknown")
+    @staticmethod
+    def convert_bytes_to_value(bytes, value_type):
+        return_value = None
+        if value_type == ValueType.ONE_BYTE or \
+            value_type == ValueType.TWO_BYTES or \
+            value_type == ValueType.FOUR_BYTES or \
+            value_type == ValueType.EIGHT_BYTES:
+            return_value = int.from_bytes(bytes, byteorder="little", signed=True)
+        return return_value
+    @staticmethod
+    def convert_value_to_bytes(value, value_type):
+        return_value = None
+        if value_type == ValueType.ONE_BYTE or \
+            value_type == ValueType.TWO_BYTES or \
+            value_type == ValueType.FOUR_BYTES or \
+            value_type == ValueType.EIGHT_BYTES:
+            return_value = (value.to_bytes(SearchUtils.type_size(value_type), byteorder="little", signed=True))
+        return return_value
+    @staticmethod
+    def check_value(search_condition, search_value, value):
+        if search_condition == SearchCondition.EXACT_VALUE:
+            return (value == search_value)
+        elif search_condition == SearchCondition.BIGGER_THAN:
+            return (value > search_value)
+        elif search_condition == SearchCondition.SMALLER_THAN:
+            return (value < search_value)
+        elif search_condition == SearchCondition.VALUE_BETWEEN:
+            return (value > search_value["from"] and value < search_value["to"])
 
 class ProcessList():
     def __init__(self):
@@ -103,7 +105,7 @@ class ScanHistory():
             if callable(self.callback_updated):
                 self.callback_updated()
     def next_scan(self, search_condition, value):
-        type_size = TypeSize(self.value_type)
+        type_size = SearchUtils.type_size(self.value_type)
         scan_iteration = ScanIteration()
         scan_iteration.search_value = value
         if search_condition == SearchCondition.EXACT_VALUE or \
@@ -115,8 +117,8 @@ class ScanHistory():
             last_iteration = self.iterations[-1]
             for address in last_iteration.found_addresses:
                 test_bytes = VmmPy_MemRead(self.search_engine.pid, address, type_size)
-                test_value = ConvertBytesToValue(test_bytes, self.value_type)
-                if CheckValue(search_condition, scan_iteration.absolute_search_value, test_value):
+                test_value = SearchUtils.convert_bytes_to_value(test_bytes, self.value_type)
+                if SearchUtils.check_value(search_condition, scan_iteration.absolute_search_value, test_value):
                     scan_iteration.found_addresses.append(address)
         else: # first scan
             pte_map = VmmPy_ProcessGetPteMap(self.search_engine.pid, True)
@@ -133,8 +135,8 @@ class ScanHistory():
                     offset = 0
                     while offset < memory_region_size - type_size:
                         test_bytes = memoryBuffer[offset:offset+type_size]
-                        test_value = ConvertBytesToValue(test_bytes, self.value_type)
-                        if CheckValue(search_condition, scan_iteration.absolute_search_value, test_value):
+                        test_value = SearchUtils.convert_bytes_to_value(test_bytes, self.value_type)
+                        if SearchUtils.check_value(search_condition, scan_iteration.absolute_search_value, test_value):
                             scan_iteration.found_addresses.append(read_address + offset)
                         offset += 1
                     read_address = read_address + read_size - type_size + 1

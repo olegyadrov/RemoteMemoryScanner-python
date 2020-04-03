@@ -29,10 +29,10 @@ class UserInterface():
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(2).setTextAlignment(Qt.AlignLeft)
         self.main_window.tableWidgetAddresses.horizontalHeaderItem(3).setTextAlignment(Qt.AlignLeft)
         for value_type in ValueType:
-            self.main_window.comboBoxValueType.addItem(ValueTypeAsHumanReadableString(value_type))
+            self.main_window.comboBoxValueType.addItem(SearchUtils.value_type_as_human_readable_string(value_type))
         self.main_window.comboBoxValueType.setCurrentIndex(ValueType.FOUR_BYTES)
         for search_condition in SearchCondition:
-            self.main_window.comboBoxScanType.addItem(SearchConditionAsHumanReadableString(search_condition))
+            self.main_window.comboBoxScanType.addItem(SearchUtils.search_condition_as_human_readable_string(search_condition))
         self.main_window.comboBoxScanType.currentIndexChanged.connect(self.on_scan_type_selected)
         self.main_window.actionOpenProcess.triggered.connect(self.on_show_open_process_action_triggered)
         self.main_window.pushButtonFirstScan.clicked.connect(self.on_first_scan_button_clicked)
@@ -170,12 +170,12 @@ class UserInterface():
         last_iteration = self.search_engine.scan_history.iterations[-1]
         address_count = len(last_iteration.found_addresses)
         display_if_less_than = self.main_window.spinBoxDisplayIfLessThan.value()
-        type_size = TypeSize(self.search_engine.scan_history.value_type)
+        type_size = SearchUtils.type_size(self.search_engine.scan_history.value_type)
         if address_count < display_if_less_than:
             address_index = 0
             while address_index < address_count:
                 value_bytes = VmmPy_MemRead(self.search_engine.pid, last_iteration.found_addresses[address_index], type_size)
-                value = ConvertBytesToValue(value_bytes, self.search_engine.scan_history.value_type)
+                value = SearchUtils.convert_bytes_to_value(value_bytes, self.search_engine.scan_history.value_type)
                 self.main_window.tableWidgetSearchResults.insertRow(address_index)
                 address_item = QTableWidgetItem(hex(last_iteration.found_addresses[address_index]))
                 address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
@@ -217,14 +217,14 @@ class UserInterface():
         self.main_window.tableWidgetAddresses.insertingData = True
         while address_index < address_count:
             monitored_value = self.search_engine.address_monitor.list[address_index]
-            value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, TypeSize(monitored_value.value_type))
-            value = ConvertBytesToValue(value_bytes, monitored_value.value_type)
+            value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, SearchUtils.type_size(monitored_value.value_type))
+            value = SearchUtils.convert_bytes_to_value(value_bytes, monitored_value.value_type)
             self.main_window.tableWidgetAddresses.insertRow(address_index)
             description_item = QTableWidgetItem(monitored_value.description)
             description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             address_item = QTableWidgetItem(hex(monitored_value.address))
             address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            type_item = QTableWidgetItem(ValueTypeAsHumanReadableString(monitored_value.value_type))
+            type_item = QTableWidgetItem(SearchUtils.value_type_as_human_readable_string(monitored_value.value_type))
             type_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             value_item= QTableWidgetItem(str(value))
             value_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
@@ -241,7 +241,7 @@ class UserInterface():
         if column == 3:
             monitored_value = self.search_engine.address_monitor.list[row]
             address = monitored_value.address
-            size = TypeSize(monitored_value.value_type)
+            size = SearchUtils.type_size(monitored_value.value_type)
             new_value_as_string = self.main_window.tableWidgetAddresses.item(row, column).text()
-            new_value_bytes = ConvertValueToBytes(int(new_value_as_string), monitored_value.value_type)
+            new_value_bytes = SearchUtils.convert_value_to_bytes(int(new_value_as_string), monitored_value.value_type)
             VmmPy_MemWrite(self.search_engine.pid, address, new_value_bytes)
