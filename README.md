@@ -6,6 +6,8 @@ The goal is to provide functionality similar to [Cheat Engine](https://github.co
 
 At this point it is nothing more than a proof-of-concept, it is slow (scan & analysis are done in the main thread) and lacking functionality (only integer numbers are currently supported).
 
+![screenshot](https://user-images.githubusercontent.com/6189747/78515297-2dfcc380-776a-11ea-83ac-5c81bb775284.png)
+
 ## Dependencies:
   * [MemProcFS](https://github.com/ufrisk/MemProcFS):
 ```
