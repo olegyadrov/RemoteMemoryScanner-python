@@ -126,28 +126,47 @@ class UserInterface():
         show_to_value_line_edit = (search_condition == SearchCondition.VALUE_BETWEEN)
         self.main_window.labelAndValue.setVisible(show_to_value_line_edit)
         self.main_window.lineEditValueTo.setVisible(show_to_value_line_edit)
-    def on_first_scan_button_clicked(self):
+    def is_search_value_valid(self, show_error_dialog):
+        search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
+        value_type = ValueType(self.main_window.comboBoxValueType.currentIndex())
+        from_value_valid = SearchUtils.is_valid_string_value(value_type, self.main_window.lineEditValueFrom.text())
+        to_value_valid = False
+        if search_condition == SearchCondition.VALUE_BETWEEN:
+            to_value_valid = SearchUtils.is_valid_string_value(value_type, self.main_window.lineEditValueTo.text())
+        if not from_value_valid or (search_condition == SearchCondition.VALUE_BETWEEN and not to_value_valid):
+            if show_error_dialog:
+                message_box = QMessageBox()
+                message_box.setIcon(QMessageBox.Warning)
+                message_box.setWindowTitle("Error")
+                message_box.setText("Entered value is not a valid " + SearchUtils.value_type_as_generic_human_readable_string(value_type) + " number")
+                message_box.setStandardButtons(QMessageBox.Ok)
+                message_box.exec()
+            return False
+        return True
+    def get_search_value(self):
         search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
         value_type = ValueType(self.main_window.comboBoxValueType.currentIndex())
         value = None
         if search_condition == SearchCondition.VALUE_BETWEEN:
             value = {
-                "from": int(self.main_window.lineEditValueFrom.text()), # todo: add validation
-                "to": int(self.main_window.lineEditValueTo.text()) # todo: add validation
+                "from": SearchUtils.convert_string_to_value(value_type, self.main_window.lineEditValueFrom.text()),
+                "to": SearchUtils.convert_string_to_value(value_type, self.main_window.lineEditValueTo.text())
             }
         else:
-            value = int(self.main_window.lineEditValueFrom.text()) # todo: add validation
+            value = SearchUtils.convert_string_to_value(value_type, self.main_window.lineEditValueFrom.text())
+        return value
+    def on_first_scan_button_clicked(self):
+        if not self.is_search_value_valid(True):
+            return
+        search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
+        value_type = ValueType(self.main_window.comboBoxValueType.currentIndex())
+        value = self.get_search_value()
         self.search_engine.scan_history.new_scan(self.main_window.checkBoxMappedModulesOption.isChecked(), search_condition, value_type, value)
     def on_next_scan_button_clicked(self):
+        if not self.is_search_value_valid(True):
+            return
         search_condition = SearchCondition(self.main_window.comboBoxScanType.currentIndex())
-        value = None
-        if search_condition == SearchCondition.VALUE_BETWEEN:
-            value = {
-                "from": int(self.main_window.lineEditValueFrom.text()), # todo: add validation
-                "to": int(self.main_window.lineEditValueTo.text()) # todo: add validation
-            }
-        else:
-            value = int(self.main_window.lineEditValueFrom.text()) # todo: add validation
+        value = self.get_search_value()
         self.search_engine.scan_history.next_scan(search_condition, value)
     def on_undo_last_scan_button_clicked(self):
         self.search_engine.scan_history.undo_last_scan()
@@ -175,7 +194,7 @@ class UserInterface():
             address_index = 0
             while address_index < address_count:
                 value_bytes = VmmPy_MemRead(self.search_engine.pid, last_iteration.found_addresses[address_index], type_size)
-                value = SearchUtils.convert_bytes_to_value(value_bytes, self.search_engine.scan_history.value_type)
+                value = SearchUtils.convert_bytes_to_value(self.search_engine.scan_history.value_type, value_bytes)
                 self.main_window.tableWidgetSearchResults.insertRow(address_index)
                 address_item = QTableWidgetItem(hex(last_iteration.found_addresses[address_index]))
                 address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
@@ -218,7 +237,7 @@ class UserInterface():
         while address_index < address_count:
             monitored_value = self.search_engine.address_monitor.list[address_index]
             value_bytes = VmmPy_MemRead(self.search_engine.pid, monitored_value.address, SearchUtils.type_size(monitored_value.value_type))
-            value = SearchUtils.convert_bytes_to_value(value_bytes, monitored_value.value_type)
+            value = SearchUtils.convert_bytes_to_value(monitored_value.value_type, value_bytes)
             self.main_window.tableWidgetAddresses.insertRow(address_index)
             description_item = QTableWidgetItem(monitored_value.description)
             description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
@@ -243,5 +262,5 @@ class UserInterface():
             address = monitored_value.address
             size = SearchUtils.type_size(monitored_value.value_type)
             new_value_as_string = self.main_window.tableWidgetAddresses.item(row, column).text()
-            new_value_bytes = SearchUtils.convert_value_to_bytes(int(new_value_as_string), monitored_value.value_type)
+            new_value_bytes = SearchUtils.convert_value_to_bytes(monitored_value.value_type, int(new_value_as_string))
             VmmPy_MemWrite(self.search_engine.pid, address, new_value_bytes)

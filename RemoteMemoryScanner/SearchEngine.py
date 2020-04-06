@@ -14,6 +14,24 @@ class SearchCondition(IntEnum):
     VALUE_BETWEEN = 3
 
 class SearchUtils():
+    LIMITS = {
+        ValueType.ONE_BYTE: {
+            "min": -128,
+            "max": 255
+        },
+        ValueType.TWO_BYTES: {
+            "min": -32768,
+            "max": 65535
+        },
+        ValueType.FOUR_BYTES: {
+            "min": -2147483648,
+            "max": 4294967295
+        },
+        ValueType.EIGHT_BYTES: {
+            "min": -9223372036854775808,
+            "max": 18446744073709551615
+        },
+    }
     @staticmethod
     def type_size(value_type):
         switcher = {
@@ -33,6 +51,15 @@ class SearchUtils():
         }
         return switcher.get(value_type, "Unknown")
     @staticmethod
+    def value_type_as_generic_human_readable_string(value_type):
+        switcher = {
+            ValueType.ONE_BYTE: "Integer",
+            ValueType.TWO_BYTES: "Integer",
+            ValueType.FOUR_BYTES: "Integer",
+            ValueType.EIGHT_BYTES: "Integer"
+        }
+        return switcher.get(value_type, "Unknown")
+    @staticmethod
     def search_condition_as_human_readable_string(search_condition):
         switcher = {
             SearchCondition.EXACT_VALUE: "Exact Value",
@@ -42,21 +69,38 @@ class SearchUtils():
         }
         return switcher.get(search_condition, "Unknown")
     @staticmethod
-    def convert_bytes_to_value(bytes, value_type):
-        return_value = None
+    def is_within_limits(value_type, value):
+        return (value >= SearchUtils.LIMITS[value_type]["min"] and value <= SearchUtils.LIMITS[value_type]["max"])
+    @staticmethod
+    def is_integer_type(value_type):
         if value_type == ValueType.ONE_BYTE or \
             value_type == ValueType.TWO_BYTES or \
             value_type == ValueType.FOUR_BYTES or \
             value_type == ValueType.EIGHT_BYTES:
+            return True
+        return False
+    @staticmethod
+    def is_valid_string_value(value_type, string_value):
+        if SearchUtils.is_integer_type(value_type):
+            try:
+                value = int(string_value)
+                return SearchUtils.is_within_limits(value_type, value)
+            except ValueError:
+                return False
+    @staticmethod
+    def convert_string_to_value(value_type, string_value):
+        if SearchUtils.is_integer_type(value_type):
+            return int(string_value)
+    @staticmethod
+    def convert_bytes_to_value(value_type, bytes):
+        return_value = None
+        if SearchUtils.is_integer_type(value_type):
             return_value = int.from_bytes(bytes, byteorder="little", signed=True)
         return return_value
     @staticmethod
-    def convert_value_to_bytes(value, value_type):
+    def convert_value_to_bytes(value_type, value):
         return_value = None
-        if value_type == ValueType.ONE_BYTE or \
-            value_type == ValueType.TWO_BYTES or \
-            value_type == ValueType.FOUR_BYTES or \
-            value_type == ValueType.EIGHT_BYTES:
+        if SearchUtils.is_integer_type(value_type):
             return_value = (value.to_bytes(SearchUtils.type_size(value_type), byteorder="little", signed=True))
         return return_value
     @staticmethod
@@ -117,7 +161,7 @@ class ScanHistory():
             last_iteration = self.iterations[-1]
             for address in last_iteration.found_addresses:
                 test_bytes = VmmPy_MemRead(self.search_engine.pid, address, type_size)
-                test_value = SearchUtils.convert_bytes_to_value(test_bytes, self.value_type)
+                test_value = SearchUtils.convert_bytes_to_value(self.value_type, test_bytes)
                 if SearchUtils.check_value(search_condition, scan_iteration.absolute_search_value, test_value):
                     scan_iteration.found_addresses.append(address)
         else: # first scan
@@ -135,7 +179,7 @@ class ScanHistory():
                     offset = 0
                     while offset < memory_region_size - type_size:
                         test_bytes = memoryBuffer[offset:offset+type_size]
-                        test_value = SearchUtils.convert_bytes_to_value(test_bytes, self.value_type)
+                        test_value = SearchUtils.convert_bytes_to_value(self.value_type, test_bytes)
                         if SearchUtils.check_value(search_condition, scan_iteration.absolute_search_value, test_value):
                             scan_iteration.found_addresses.append(read_address + offset)
                         offset += 1
