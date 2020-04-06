@@ -240,7 +240,7 @@ class UserInterface():
             value = SearchUtils.convert_bytes_to_value(monitored_value.value_type, value_bytes)
             self.main_window.tableWidgetAddresses.insertRow(address_index)
             description_item = QTableWidgetItem(monitored_value.description)
-            description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            description_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsEditable)
             address_item = QTableWidgetItem(hex(monitored_value.address))
             address_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             type_item = QTableWidgetItem(SearchUtils.value_type_as_human_readable_string(monitored_value.value_type))
